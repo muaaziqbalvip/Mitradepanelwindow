@@ -117,7 +117,7 @@ class SettingsApp(tk.Tk):
     def _section_title(self, card, emoji, text):
         row = tk.Frame(card, bg=CARD_BG)
         row.pack(fill="x", pady=(0, 12))
-        tk.Label(row, text=emoji, font=(FONT_FAMILY, 12), bg="#2022C55E",
+        tk.Label(row, text=emoji, font=(FONT_FAMILY, 12), bg="#1B2E22",
                  fg=WHITE, width=2, height=1).pack(side="left", padx=(0, 8))
         tk.Label(row, text=text, font=(FONT_FAMILY, 12, "bold"),
                  bg=CARD_BG, fg=ACCENT_LIGHT).pack(side="left")

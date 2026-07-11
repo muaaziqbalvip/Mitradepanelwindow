@@ -137,7 +137,7 @@ class ToggleBubble(tk.Toplevel):
         canvas = tk.Canvas(self, width=size, height=size, bg="#FF00FF", highlightthickness=0)
         canvas.pack()
 
-        canvas.create_oval(2, 2, size - 2, size - 2, fill="#1A2744", outline="#5522C55E", width=2)
+        canvas.create_oval(2, 2, size - 2, size - 2, fill="#1A2744", outline="#2E5A3E", width=2)
 
         try:
             from PIL import Image, ImageTk
@@ -225,7 +225,7 @@ class OverlayWindow(tk.Toplevel):
         self.panel_win.geometry(f"+{bx}+{by + 62}")
 
         bar = tk.Frame(self.panel_win, bg=PANEL_BG, padx=8, pady=6,
-                        highlightbackground="#3322C55E", highlightthickness=1)
+                        highlightbackground="#2E5A3E", highlightthickness=1)
         bar.pack()
 
         drag_handle = tk.Label(bar, text="⠿", bg=PANEL_BG, fg=ACCENT_LIGHT,
