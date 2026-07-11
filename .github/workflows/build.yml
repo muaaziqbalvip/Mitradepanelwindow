@@ -1,0 +1,52 @@
+name: Build AI Touch Desktop EXE
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE
+        run: |
+          pyinstaller --noconfirm --onefile --windowed `
+            --name "AITouchDesktop" `
+            --icon "assets/icon.ico" `
+            --add-data "assets;assets" `
+            --hidden-import PIL._tkinter_finder `
+            main.py
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AITouchDesktop-Windows-EXE
+          path: dist/AITouchDesktop.exe
+          retention-days: 30
+
+      - name: Create Release (on main branch push)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-build-${{ github.run_number }}
+          name: AI Touch Desktop Build ${{ github.run_number }}
+          files: dist/AITouchDesktop.exe
+          body: "Automatic Windows build. Download AITouchDesktop.exe and run it directly — no installation needed."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
