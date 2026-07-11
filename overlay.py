@@ -180,6 +180,8 @@ class OverlayWindow(tk.Toplevel):
         self.dots: list[dict] = list(settings.get("dots", []))
         self.dot_widgets: dict[str, DotWidget] = {}
         self.panel_visible = False
+        self.last_description: str | None = None
+        self.last_dot_chosen: str | None = None
 
         self.withdraw()  # this root Toplevel itself stays invisible; it just hosts children
 
@@ -241,6 +243,7 @@ class OverlayWindow(tk.Toplevel):
 
         icon_btn("➕", WHITE, self.prompt_new_dot)
         icon_btn("✨", ACCENT_LIGHT, self.run_ai_analysis)
+        icon_btn("📊", "#60A5FA", self.show_feedback_dialog)
         icon_btn("✕", DANGER, self.close_overlay)
 
     def _on_panel_press(self, event):
@@ -358,6 +361,8 @@ class OverlayWindow(tk.Toplevel):
 
         dot_name = result.get("dot", "")
         debug_raw = result.get("_debug_raw", "")
+        self.last_description = result.get("description", "")
+        self.last_dot_chosen = dot_name
 
         def on_main_thread():
             if debug_raw:
@@ -373,3 +378,68 @@ class OverlayWindow(tk.Toplevel):
             print(f"[AI Touch] ✓ Clicked: {dot_name}")
 
         self.after(0, on_main_thread)
+
+    # ---------------- Feedback ----------------
+
+    def show_feedback_dialog(self):
+        if not getattr(self, "last_description", None):
+            messagebox.showwarning("AI Touch", "Pehle 'AI Run' se ek analysis karein.")
+            return
+
+        win = tk.Toplevel(self.panel_win if self.panel_win else self)
+        win.title("Trade Result")
+        win.configure(bg=PANEL_BG)
+        win.attributes("-topmost", True)
+        win.geometry("260x180")
+
+        tk.Label(win, text="Pichle trade ka result:", bg=PANEL_BG, fg=WHITE,
+                 font=("Segoe UI", 10, "bold")).pack(pady=(16, 10))
+
+        tk.Button(win, text="✅ Win (profit hua)", bg="#16A34A", fg=WHITE, relief="flat",
+                  command=lambda: self._report_result("win", win)).pack(fill="x", padx=20, pady=4)
+        tk.Button(win, text="❌ Loss (loss hua)", bg="#DC2626", fg=WHITE, relief="flat",
+                  command=lambda: self._report_result("loss", win)).pack(fill="x", padx=20, pady=4)
+        tk.Button(win, text="📊 Stats dekhein", bg="#2563EB", fg=WHITE, relief="flat",
+                  command=lambda: self._show_stats(win)).pack(fill="x", padx=20, pady=4)
+
+    def _report_result(self, result: str, dialog_win: tk.Toplevel):
+        dialog_win.destroy()
+
+        def worker():
+            success, error = backend_client.send_feedback(
+                backend_url=self.settings["backend_url"],
+                pin=self.settings.get("pin", ""),
+                description=self.last_description,
+                result=result,
+                dot=self.last_dot_chosen or "",
+            )
+
+            def done():
+                if success:
+                    label = "✅ Win" if result == "win" else "❌ Loss"
+                    messagebox.showinfo("AI Touch", f"{label} save ho gaya — agli baar AI is se seekhega")
+                else:
+                    messagebox.showerror("AI Touch", error or "Feedback save nahi hua")
+
+            self.after(0, done)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_stats(self, dialog_win: tk.Toplevel):
+        dialog_win.destroy()
+
+        def worker():
+            stats = backend_client.fetch_stats(self.settings["backend_url"])
+
+            def done():
+                total = stats.get("total", 0)
+                if total == 0:
+                    msg = "Abhi tak koi feedback record nahi hai."
+                else:
+                    msg = (f"Wins: {stats.get('wins', 0)} | Losses: {stats.get('losses', 0)}\n"
+                           f"Win Rate: {stats.get('win_rate_percent', 0)}%")
+                messagebox.showinfo("Trading Stats", msg)
+
+            self.after(0, done)
+
+        threading.Thread(target=worker, daemon=True).start()

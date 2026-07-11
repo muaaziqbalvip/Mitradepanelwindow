@@ -87,3 +87,39 @@ def analyze(
         raise BackendError(data.get("error", f"Backend error {resp.status_code}"))
 
     return data
+
+
+def _base_url(backend_url: str) -> str:
+    base = backend_url.rstrip("/")
+    if base.endswith("/analyze"):
+        base = base[: -len("/analyze")]
+    return base
+
+
+def send_feedback(
+    backend_url: str, pin: str, description: str, result: str, dot: str, timeout: int = 15
+) -> tuple[bool, str | None]:
+    """Reports a trade result ('win' or 'loss') for the last analysis. Returns (success, error)."""
+    url = _base_url(backend_url) + "/feedback"
+    try:
+        resp = requests.post(
+            url,
+            json={"description": description, "result": result, "dot": dot, "pin": pin},
+            timeout=timeout,
+        )
+        if resp.status_code >= 400:
+            data = resp.json()
+            return False, data.get("error", f"Error {resp.status_code}")
+        return True, None
+    except Exception as e:
+        return False, f"Network error: {e}"
+
+
+def fetch_stats(backend_url: str, timeout: int = 15) -> dict:
+    """Returns {"wins": int, "losses": int, "total": int, "win_rate_percent": float}."""
+    url = _base_url(backend_url) + "/feedback/stats"
+    try:
+        resp = requests.get(url, timeout=timeout)
+        return resp.json()
+    except Exception:
+        return {"wins": 0, "losses": 0, "total": 0, "win_rate_percent": 0.0}
