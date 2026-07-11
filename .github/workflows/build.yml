@@ -1,4 +1,4 @@
-sname: Build AI Touch Desktop EXE
+name: Build AI Touch Desktop EXE
 
 on:
   push:
