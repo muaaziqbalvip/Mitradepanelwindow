@@ -207,9 +207,9 @@ class SettingsApp(tk.Tk):
         footer = tk.Frame(parent, bg=FOOTER_BG)
         footer.pack(fill="x", pady=(20, 0))
         tk.Label(footer, text="Developed by Muaaz Iqbal", font=(FONT_FAMILY, 10, "bold"),
-                  bg=FOOTER_BG, fg=ACCENT_LIGHT, pady=10).pack()
+                  bg=FOOTER_BG, fg=ACCENT_LIGHT).pack(pady=(10, 2))
         tk.Label(footer, text="Muslim Islam Organization", font=(FONT_FAMILY, 8),
-                  bg=FOOTER_BG, fg=TEXT_SECONDARY, pady=(0, 10)).pack()
+                  bg=FOOTER_BG, fg=TEXT_SECONDARY).pack(pady=(0, 10))
 
     # ---------------- Actions ----------------
 

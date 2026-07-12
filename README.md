@@ -4,21 +4,28 @@ Windows version of AI Touch, same dark theme, logo, and layout as the
 Android app. Uses the **same HF Space backend** — screenshot in, AI picks
 a dot, real mouse click happens.
 
-## Get the .exe automatically (no setup needed)
+## Get the installer automatically (no setup needed)
 
-This repo has a GitHub Actions workflow that builds `AITouchDesktop.exe`
-automatically on every push:
+This repo has a GitHub Actions workflow that builds a **proper Windows
+installer** automatically on every push:
 
 1. Push this repo to GitHub.
 2. Go to the **Actions** tab → the workflow runs automatically (or click
    "Run workflow" to trigger it manually).
-3. Once it finishes (~2-3 min), open the run → under **Artifacts**,
-   download `AITouchDesktop-Windows-EXE`.
-4. Extract the zip → you get `AITouchDesktop.exe`. Double-click to run —
-   no installation, no Python needed on the target PC.
+3. Once it finishes (~3-4 min), open the run → under **Artifacts**,
+   download **AITouchDesktop-Setup-Installer**.
+4. Extract the zip → you get `AITouchDesktop-Setup.exe`. Run it like any
+   normal Windows installer:
+   - Choose install location (defaults to Program Files)
+   - Optionally create a Desktop shortcut
+   - Adds a Start Menu entry
+   - Shows up in "Apps & Features" so it can be uninstalled normally
+
+There's also a **AITouchDesktop-Portable-EXE** artifact if you just want a
+single file to run without installing anything.
 
 If you push to `main`/`master`, it also auto-creates a GitHub Release with
-the .exe attached, so you always have a permanent download link.
+both files attached, so you always have a permanent download link.
 
 ## Run from source (for development/testing)
 
