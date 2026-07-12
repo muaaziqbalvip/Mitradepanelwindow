@@ -1,4 +1,4 @@
-name: Build AI Touch Desktop EXE
+name: Build AI Touch Desktop Installer
 
 on:
   push:
@@ -33,11 +33,25 @@ jobs:
             --hidden-import PIL._tkinter_finder `
             main.py
 
-      - name: Upload EXE artifact
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build Windows Installer (Setup.exe)
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Upload portable EXE artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AITouchDesktop-Windows-EXE
+          name: AITouchDesktop-Portable-EXE
           path: dist/AITouchDesktop.exe
+          retention-days: 30
+
+      - name: Upload Installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AITouchDesktop-Setup-Installer
+          path: installer_output/AITouchDesktop-Setup.exe
           retention-days: 30
 
       - name: Create Release (on main branch push)
@@ -46,7 +60,11 @@ jobs:
         with:
           tag_name: desktop-build-${{ github.run_number }}
           name: AI Touch Desktop Build ${{ github.run_number }}
-          files: dist/AITouchDesktop.exe
-          body: "Automatic Windows build. Download AITouchDesktop.exe and run it directly — no installation needed."
+          files: |
+            installer_output/AITouchDesktop-Setup.exe
+            dist/AITouchDesktop.exe
+          body: |
+            **AITouchDesktop-Setup.exe** — recommended: proper installer with Start Menu + Desktop shortcuts, Uninstall support.
+            **AITouchDesktop.exe** — portable version, no installation needed, just run directly.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
