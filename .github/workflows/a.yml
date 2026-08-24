@@ -1,104 +1,68 @@
-name: 24/7 Pure Fullscreen Android Mobile
+name: 24/7 Cloud Android Mobile (Full Web GUI)
 
 on:
+  # Manual run button
   workflow_dispatch:
+  # Har 5 ghante baad automatically dobara start hoga (24/7 ke liye)
   schedule:
-    - cron: '0 */5 * * *' # 24/7 Active rakhne ke liye
+    - cron: '0 */5 * * *'
 
 jobs:
-  clean-mobile:
+  cloud-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 350 # 5.5 Ghante tak chalta rahega
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. KVM Hardware Acceleration Setup (Smooth Speed ke liye)
-      - name: Enable KVM Hardware Engine
+      # 1. KVM Hardware Acceleration On Karna (Fast & Smooth Speed Ke Liye)
+      - name: Enable KVM Hardware Acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
 
-      # 2. Pure Mobile Display Engine & Web Viewer Setup
-      - name: Install Display & Clean Mobile Viewer
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb x11vnc websockify novnc
-          
-          # Real Mobile Screen Size (720x1440 Portrait Mode)
-          Xvfb :99 -screen 0 720x1440x24 &
-          sleep 2
-          
-          # Fast VNC Server (Ultra responsive)
-          x11vnc -display :99 -forever -nopw -shared -rfbport 5900 -noxrecord -noxfixes -noxdamage &
-          
-          # Web Viewer (Port 8080)
-          websockify --web /usr/share/novnc 8080 localhost:5900 &
-          echo "Display Server Ready"
-
-      # 3. Cloudflare Live Tunnel Start Karna
-      - name: Start Cloudflare Tunnel
+      # 2. Cloudflare Tunnel Install Karna
+      - name: Install Cloudflared
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
-          
-          cloudflared tunnel --url http://localhost:8080 2> /tmp/cloudflared.log &
-          
-          echo "Waiting for Cloudflare URL..."
-          url=""
-          for i in {1..30}; do
-            url=$(grep -o 'https://[-a-zA-Z0-9@:%._\+~#=]*\.trycloudflare\.com' /tmp/cloudflared.log | head -n 1)
-            if [ -n "$url" ]; then
-              break
-            fi
-            sleep 2
-          done
-          
-          # PURE FULLSCREEN MOBILE URL (Auto-connect & Auto-Fit scale)
-          CLEAN_MOBILE_URL="${url}/vnc.html?autoconnect=true&resize=scale"
-          
-          echo "CLEAN_URL=$CLEAN_MOBILE_URL" >> $GITHUB_ENV
-          
-          # GitHub Action Summary Page par direct Clickable Button
-          echo "## 📱 Pure Fullscreen Android Mobile Live Hai!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 👉 [📲 CLICK HERE TO OPEN ANDROID MOBILE]($CLEAN_MOBILE_URL)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Direct Link: \`$CLEAN_MOBILE_URL\`" >> $GITHUB_STEP_SUMMARY
-          
-          echo "=================================================================="
-          echo "🎉 DIRECT MOBILE URL: $CLEAN_MOBILE_URL"
-          echo "=================================================================="
 
-      # 4. Official Google Play Store Android Emulator Run Karna
-      - name: Launch Full Android Mobile
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30                                 # Pure Stable Android
-          target: google_apis_playstore                 # Official Google Play Store
-          arch: x86_64
-          profile: pixel_5                              # Smartphone Mobile Profile
-          force-avd-creation: false
-          # GUI window enabled on :99 display for pure visual rendering
-          emulator-options: -no-snapshot-save -gpu swiftshader_indirect -noaudio -no-boot-anim
-          disable-animations: true
-          
-          script: |
-            export DISPLAY=:99
-            echo "Waiting for Android System to Boot..."
-            adb wait-for-device
-            
-            # Smooth Touch & Speed Optimization
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
-            
-            echo "================================================================"
-            echo "🚀 ANDROID MOBILE IS FULLY RUNNING!"
-            echo "📲 OPEN ON MOBILE: ${{ env.CLEAN_URL }}"
-            echo "================================================================"
-            
-            # 5.5 Hours Runtime (24/7 Schedule ke sath)
-            sleep 18000
+      # 3. Cloudflare Web Tunnel Start Karna (Port 6080)
+      - name: Start Cloudflare Tunnel
+        run: |
+          cloudflared tunnel --url http://localhost:6080 > tunnel.log 2>&1 &
+          sleep 4
+
+      # 4. Full Android Mobile Container Run Karna (Samsung Galaxy Profile)
+      - name: Run Full Android Mobile OS
+        run: |
+          docker run --privileged -d \
+            -p 6080:6080 \
+            -p 5554:5554 \
+            -p 5555:5555 \
+            -e EMULATOR_DEVICE="Samsung Galaxy S10" \
+            -e WEB_VNC=true \
+            -e APPIUM=true \
+            -v /dev/kvm:/dev/kvm \
+            --name android-container \
+            budtmo/docker-android:emulator_11.0
+
+      # 5. Live Screen Link Display Karna
+      - name: Display Live Mobile URL
+        run: |
+          sleep 8
+          echo "================================================================"
+          echo "🚀 AAPKA ANDROID MOBILE TAIYAR HAI! 🚀"
+          echo "👇 NEECHE DIYE GAYE LINK KO BROWSER MEIN OPEN KAREIN 👇"
+          grep -o 'https://[-a-zA-Z0-9@:%._\+~#=]*\.trycloudflare\.com' tunnel.log || cat tunnel.log
+          echo "================================================================"
+
+      # 6. Session Ko 5 Ghante Active Rakhna (24/7 Loop)
+      - name: Keep Android Mobile Online
+        run: |
+          echo "Mobile active hai! Aap browser se use kar sakte hain..."
+          # 18000 seconds = 5 ghante
+          sleep 18000
