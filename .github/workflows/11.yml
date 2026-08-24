@@ -1,98 +1,100 @@
-name: 24/7 Super Fast Cloud VPN (Full Mobile Net)
+name: Ultra High-Speed Gigabit VPN (Fixed Domain & BBR Boost)
 
 on:
-  workflow_dispatch: # Manual Run Button
+  workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *' # 24/7 Active rakhne ke liye
+    - cron: '0 */5 * * *'
 
 jobs:
-  cloud-vpn-server:
+  gigabit-vpn:
     runs-on: ubuntu-latest
-    timeout-minutes: 350 # 5.5 Hours Runtime
+    timeout-minutes: 350
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. High Speed VPN Engine (Xray-Core) Install Karna
-      - name: Install Xray VPN Core
+      # 1. Linux Kernel BBR Speed Boost (1 Gbps+ Acceleration)
+      - name: Boost Network & Enable Google BBR
+        run: |
+          sudo modprobe tcp_bbr
+          echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
+          echo "net.core.rmem_max=67108864" | sudo tee -a /etc/sysctl.conf
+          echo "net.core.wmem_max=67108864" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_rmem=4096 87380 33554432" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_wmem=4096 65536 33554432" | sudo tee -a /etc/sysctl.conf
+          sudo sysctl -p
+
+      # 2. Install Xray Gigabit Core
+      - name: Install High Performance Xray Core
         run: |
           wget -q -O xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           sudo unzip -q xray.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/xray
-          sudo apt-get update && sudo apt-get install -y qrencode
 
-      # 2. VPN Configuration File Setup Karna
-      - name: Configure VPN Server
+      # 3. Configure Ultra Fast VLESS TCP Server
+      - name: Configure Gigabit VPN Server
         run: |
           cat << 'EOF' > /tmp/config.json
           {
-            "log": { "loglevel": "warning" },
+            "log": { "loglevel": "none" },
+            "dns": {
+              "servers": ["tcp+local://1.1.1.1", "tcp+local://8.8.8.8"]
+            },
             "inbounds": [
               {
-                "port": 8080,
+                "port": 4433,
                 "protocol": "vless",
                 "settings": {
                   "clients": [
-                    { "id": "b831381d-6324-4d53-ad4f-8cda48b30811" }
+                    { "id": "b831381d-6324-4d53-ad4f-8cda48b30811", "flow": "" }
                   ],
                   "decryption": "none"
                 },
                 "streamSettings": {
-                  "network": "ws",
-                  "wsSettings": { "path": "/cloud-net" }
+                  "network": "tcp"
                 }
               }
             ],
-            "outbounds": [{ "protocol": "freedom" }]
+            "outbounds": [
+              { "protocol": "freedom", "settings": { "domainStrategy": "UseIP" } }
+            ]
           }
           EOF
           /usr/local/bin/xray run -c /tmp/config.json &
-          echo "VPN Core Server Running on Port 8080"
+          echo "Gigabit Xray Running on Port 4433"
 
-      # 3. Cloudflare Tunnel Install & Start Karna
-      - name: Start Cloudflare Tunnel & Generate Mobile Key
+      # 4. Ngrok High-Speed TCP Tunnel (Fixed Speed & Port)
+      - name: Start High-Speed Tunnel
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
         run: |
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-          sudo dpkg -i cloudflared-linux-amd64.deb
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install -y ngrok
           
-          cloudflared tunnel --url http://localhost:8080 2> /tmp/cloudflared.log &
-          
-          echo "Waiting for Tunnel to connect..."
-          domain=""
-          for i in {1..30}; do
-            domain=$(grep -o '[-a-zA-Z0-9@:%._\+~#=]*\.trycloudflare\.com' /tmp/cloudflared.log | head -n 1)
-            if [ -n "$domain" ]; then
-              break
-            fi
-            sleep 2
-          done
-          
-          if [ -z "$domain" ]; then
-            echo "Failed to get tunnel domain"
-            cat /tmp/cloudflared.log
+          if [ -n "$NGROK_TOKEN" ]; then
+            ngrok config add-authtoken "$NGROK_TOKEN"
+            ngrok tcp 4433 --log=stdout > /tmp/ngrok.log &
+            sleep 4
+            RAW_ADDR=$(grep -o 'tcp://[^ ]*' /tmp/ngrok.log | head -n 1 | sed 's/tcp:\/\///')
+            HOST=$(echo $RAW_ADDR | cut -d: -f1)
+            PORT=$(echo $RAW_ADDR | cut -d: -f2)
+            
+            VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${HOST}:${PORT}?type=tcp&security=none#Gigabit_Direct_Speed"
+            
+            echo "## ⚡ 1 Gbps Gigabit Direct Speed Ready!" >> $GITHUB_STEP_SUMMARY
+            echo "### 📱 v2rayNG Key:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+            echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Please add NGROK_AUTHTOKEN in GitHub Secrets for Gigabit Direct Speed."
             exit 1
           fi
-          
-          # VLESS VPN LINK FOR MOBILE
-          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${domain}:443?type=ws&security=tls&path=%2Fcloud-net#CloudNet_US_1Gbps"
-          
-          echo "VPN_KEY=$VLESS_KEY" >> $GITHUB_ENV
-          
-          # GitHub Action Summary Page par direct Key show karna
-          echo "## 🚀 1 Gbps Cloud Internet VPN Ready!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📱 Apne Mobile mein ye Config Key Copy karein:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
-          echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          
-          echo "=================================================================="
-          echo "🎉 APKI MOBILE VPN KEY: $VLESS_KEY"
-          echo "=================================================================="
 
-      # 4. Server Ko 5.5 Ghante Active Rakhna
-      - name: Keep VPN Server Running
+      # 5. Keep Alive
+      - name: Keep Server Active
         run: |
-          echo "VPN Server Active hai! Mobile connect karke 1Gbps internet use karein..."
           sleep 18000
