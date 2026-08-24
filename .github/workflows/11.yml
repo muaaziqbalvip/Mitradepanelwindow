@@ -1,4 +1,4 @@
-name: Ultra High-Speed Gigabit VPN (Fixed Domain & BBR Boost)
+name: 100% Free Direct High-Speed VPN (No Credit Card)
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     - cron: '0 */5 * * *'
 
 jobs:
-  gigabit-vpn:
+  high-speed-vpn:
     runs-on: ubuntu-latest
     timeout-minutes: 350
 
@@ -14,27 +14,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Linux Kernel BBR Speed Boost (1 Gbps+ Acceleration)
+      # 1. Linux Kernel BBR Speed Boost (Fast Speed ke liye)
       - name: Boost Network & Enable Google BBR
         run: |
           sudo modprobe tcp_bbr
           echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
           echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
-          echo "net.core.rmem_max=67108864" | sudo tee -a /etc/sysctl.conf
-          echo "net.core.wmem_max=67108864" | sudo tee -a /etc/sysctl.conf
-          echo "net.ipv4.tcp_rmem=4096 87380 33554432" | sudo tee -a /etc/sysctl.conf
-          echo "net.ipv4.tcp_wmem=4096 65536 33554432" | sudo tee -a /etc/sysctl.conf
           sudo sysctl -p
 
-      # 2. Install Xray Gigabit Core
+      # 2. Xray Core Install Karna
       - name: Install High Performance Xray Core
         run: |
           wget -q -O xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           sudo unzip -q xray.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/xray
 
-      # 3. Configure Ultra Fast VLESS TCP Server
-      - name: Configure Gigabit VPN Server
+      # 3. Direct Fast TCP VLESS Server Configure Karna
+      - name: Configure Fast TCP VPN Server
         run: |
           cat << 'EOF' > /tmp/config.json
           {
@@ -58,43 +54,53 @@ jobs:
               }
             ],
             "outbounds": [
-              { "protocol": "freedom", "settings": { "domainStrategy": "UseIP" } }
+              { "protocol": "freedom" }
             ]
           }
           EOF
           /usr/local/bin/xray run -c /tmp/config.json &
-          echo "Gigabit Xray Running on Port 4433"
+          echo "Xray TCP Server Running on Port 4433"
 
-      # 4. Ngrok High-Speed TCP Tunnel (Fixed Speed & Port)
-      - name: Start High-Speed Tunnel
-        env:
-          NGROK_TOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      # 4. Direct Free TCP Tunnel (No Card, No Signup)
+      - name: Start Free Direct TCP Tunnel
         run: |
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install -y ngrok
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:localhost:4433 tcp@free.pinggy.io 2>&1 | tee /tmp/pinggy.log &
           
-          if [ -n "$NGROK_TOKEN" ]; then
-            ngrok config add-authtoken "$NGROK_TOKEN"
-            ngrok tcp 4433 --log=stdout > /tmp/ngrok.log &
-            sleep 4
-            RAW_ADDR=$(grep -o 'tcp://[^ ]*' /tmp/ngrok.log | head -n 1 | sed 's/tcp:\/\///')
-            HOST=$(echo $RAW_ADDR | cut -d: -f1)
-            PORT=$(echo $RAW_ADDR | cut -d: -f2)
-            
-            VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${HOST}:${PORT}?type=tcp&security=none#Gigabit_Direct_Speed"
-            
-            echo "## ⚡ 1 Gbps Gigabit Direct Speed Ready!" >> $GITHUB_STEP_SUMMARY
-            echo "### 📱 v2rayNG Key:" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
-            echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Please add NGROK_AUTHTOKEN in GitHub Secrets for Gigabit Direct Speed."
+          echo "Waiting for Direct TCP Address..."
+          raw_url=""
+          for i in {1..30}; do
+            raw_url=$(grep -o 'tcp://[a-zA-Z0-9.-]*:[0-9]*' /tmp/pinggy.log | head -n 1)
+            if [ -n "$raw_url" ]; then
+              break
+            fi
+            sleep 2
+          done
+          
+          if [ -z "$raw_url" ]; then
+            echo "Pinggy Log:"
+            cat /tmp/pinggy.log
             exit 1
           fi
+          
+          CLEAN_ADDR=$(echo $raw_url | sed 's/tcp:\/\///')
+          HOST=$(echo $CLEAN_ADDR | cut -d: -f1)
+          PORT=$(echo $CLEAN_ADDR | cut -d: -f2)
+          
+          # DIRECT HIGH SPEED VLESS KEY
+          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${HOST}:${PORT}?type=tcp&security=none#Direct_Super_Speed"
+          
+          echo "## ⚡ Direct High-Speed Cloud Internet Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Apne Mobile v2rayNG mein ye Key Paste karein:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+          echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          echo "=================================================================="
+          echo "🎉 HIGH SPEED KEY: $VLESS_KEY"
+          echo "=================================================================="
 
-      # 5. Keep Alive
+      # 5. Keep Alive (5.5 Hours)
       - name: Keep Server Active
         run: |
           sleep 18000
