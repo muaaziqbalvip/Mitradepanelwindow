@@ -1,0 +1,68 @@
+name: 24/7 Cloud Android Mobile (Full Web GUI)
+
+on:
+  # Manual run button
+  workflow_dispatch:
+  # Har 5 ghante baad automatically dobara start hoga (24/7 ke liye)
+  schedule:
+    - cron: '0 */5 * * *'
+
+jobs:
+  cloud-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # 5.5 Ghante tak chalta rahega
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. KVM Hardware Acceleration On Karna (Fast & Smooth Speed Ke Liye)
+      - name: Enable KVM Hardware Acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      # 2. Cloudflare Tunnel Install Karna
+      - name: Install Cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      # 3. Cloudflare Web Tunnel Start Karna (Port 6080)
+      - name: Start Cloudflare Tunnel
+        run: |
+          cloudflared tunnel --url http://localhost:6080 > tunnel.log 2>&1 &
+          sleep 4
+
+      # 4. Full Android Mobile Container Run Karna (Samsung Galaxy Profile)
+      - name: Run Full Android Mobile OS
+        run: |
+          docker run --privileged -d \
+            -p 6080:6080 \
+            -p 5554:5554 \
+            -p 5555:5555 \
+            -e EMULATOR_DEVICE="Samsung Galaxy S10" \
+            -e WEB_VNC=true \
+            -e APPIUM=true \
+            -v /dev/kvm:/dev/kvm \
+            --name android-container \
+            budtmo/docker-android:emulator_11.0
+
+      # 5. Live Screen Link Display Karna
+      - name: Display Live Mobile URL
+        run: |
+          sleep 8
+          echo "================================================================"
+          echo "🚀 AAPKA ANDROID MOBILE TAIYAR HAI! 🚀"
+          echo "👇 NEECHE DIYE GAYE LINK KO BROWSER MEIN OPEN KAREIN 👇"
+          grep -o 'https://[-a-zA-Z0-9@:%._\+~#=]*\.trycloudflare\.com' tunnel.log || cat tunnel.log
+          echo "================================================================"
+
+      # 6. Session Ko 5 Ghante Active Rakhna (24/7 Loop)
+      - name: Keep Android Mobile Online
+        run: |
+          echo "Mobile active hai! Aap browser se use kar sakte hain..."
+          # 18000 seconds = 5 ghante
+          sleep 18000
