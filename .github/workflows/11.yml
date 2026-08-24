@@ -1,109 +1,84 @@
-name: 100MB+ Direct High-Speed Cloud VPN
+name: Direct IP High-Speed VPN
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *' # 24/7 active
+    - cron: '0 */5 * * *'
 
 jobs:
-  high-speed-vpn:
+  direct-vpn:
     runs-on: ubuntu-latest
     timeout-minutes: 350
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 1. Google BBR High-Speed Optimization (100MB+ Speed Boost)
-      - name: Boost Network & Enable Google BBR
+      # BBR Speed Boost
+      - name: Enable BBR & Full Kernel Speed Tuning
         run: |
           sudo modprobe tcp_bbr
           echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
           echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
-          echo "net.core.rmem_max=67108864" | sudo tee -a /etc/sysctl.conf
-          echo "net.core.wmem_max=67108864" | sudo tee -a /etc/sysctl.conf
+          echo "net.core.rmem_max=134217728" | sudo tee -a /etc/sysctl.conf
+          echo "net.core.wmem_max=134217728" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_rmem=4096 87380 67108864" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_wmem=4096 65536 67108864" | sudo tee -a /etc/sysctl.conf
+          echo "net.ipv4.tcp_mtu_probing=1" | sudo tee -a /etc/sysctl.conf
           sudo sysctl -p
 
-      # 2. High Performance Xray Core Install Karna
-      - name: Install Xray VPN Core
+      # Xray Install
+      - name: Install Xray Core
         run: |
           wget -q -O xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           sudo unzip -q xray.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/xray
 
-      # 3. Direct Fast TCP VLESS Server Configure Karna
-      - name: Configure Fast TCP VPN Server
+      # VLESS Server Configure
+      - name: Configure Xray VLESS Server
         run: |
-          cat << 'EOF' > /tmp/config.json
+          cat > /tmp/config.json << 'EOF'
           {
             "log": { "loglevel": "none" },
-            "dns": {
-              "servers": ["tcp+local://1.1.1.1", "tcp+local://8.8.8.8"]
-            },
-            "inbounds": [
-              {
-                "port": 4433,
-                "protocol": "vless",
-                "settings": {
-                  "clients": [
-                    { "id": "b831381d-6324-4d53-ad4f-8cda48b30811", "flow": "" }
-                  ],
-                  "decryption": "none"
-                },
-                "streamSettings": {
-                  "network": "tcp"
-                }
-              }
-            ],
-            "outbounds": [
-              { "protocol": "freedom" }
-            ]
+            "dns": { "servers": ["tcp+local://1.1.1.1","tcp+local://8.8.8.8"] },
+            "inbounds": [{
+              "port": 4433,
+              "protocol": "vless",
+              "settings": {
+                "clients": [{ "id": "b831381d-6324-4d53-ad4f-8cda48b30811" }],
+                "decryption": "none"
+              },
+              "streamSettings": { "network": "tcp" }
+            }],
+            "outbounds": [{ "protocol": "freedom" }]
           }
           EOF
           /usr/local/bin/xray run -c /tmp/config.json &
-          echo "Xray High-Speed Server Started"
 
-      # 4. Port 443 Direct TCP Tunnel (No Port 22 Error)
-      - name: Start High-Speed Direct Tunnel (Port 443)
+      # Get Direct Public IP (No Tunnel - Full Speed)
+      - name: Get Direct Server IP & Generate Key
         run: |
-          # Connecting specifically on Port 443 to bypass GitHub Firewall
-          ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:localhost:4433 tcp@free.pinggy.io 2>&1 | tee /tmp/pinggy.log &
+          # Firewall open karna
+          sudo iptables -I INPUT -p tcp --dport 4433 -j ACCEPT
           
-          echo "Waiting for High-Speed Direct Address..."
-          raw_url=""
-          for i in {1..30}; do
-            raw_url=$(grep -o 'tcp://[a-zA-Z0-9.-]*:[0-9]*' /tmp/pinggy.log | head -n 1)
-            if [ -n "$raw_url" ]; then
-              break
-            fi
-            sleep 2
-          done
+          # Direct Public IP nikalna
+          SERVER_IP=$(curl -s https://api.ipify.org)
+          echo "Server IP: $SERVER_IP"
           
-          if [ -z "$raw_url" ]; then
-            echo "Pinggy Log Output:"
-            cat /tmp/pinggy.log
-            exit 1
-          fi
+          # Direct Full-Speed VLESS Key (Koi tunnel nahi)
+          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${SERVER_IP}:4433?type=tcp&security=none&packetEncoding=xudp#GitHub_FULL_SPEED_$(date +%H%M)"
           
-          CLEAN_ADDR=$(echo $raw_url | sed 's/tcp:\/\///')
-          HOST=$(echo $CLEAN_ADDR | cut -d: -f1)
-          PORT=$(echo $CLEAN_ADDR | cut -d: -f2)
-          
-          # DIRECT HIGH SPEED VLESS KEY
-          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${HOST}:${PORT}?type=tcp&security=none#Gigabit_Direct_Speed"
-          
-          echo "## ⚡ 100MB+ Gigabit High-Speed Cloud Internet Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "## ⚡ FULL SPEED Direct GitHub Cloud VPN!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📱 Apne Mobile v2rayNG mein ye Key Paste karein:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+          echo "**Server IP:** \`${SERVER_IP}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 v2rayNG Key:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           
-          echo "=================================================================="
-          echo "🎉 DIRECT HIGH SPEED KEY: $VLESS_KEY"
-          echo "=================================================================="
+          echo "🎉 FULL SPEED KEY: $VLESS_KEY"
 
-      # 5. Keep Server Alive (5.5 Hours)
-      - name: Keep Server Active
-        run: |
-          sleep 18000
+      # Keep Alive
+      - name: Keep VPN Running
+        run: sleep 18000
