@@ -1,0 +1,98 @@
+name: 24/7 Super Fast Cloud VPN (Full Mobile Net)
+
+on:
+  workflow_dispatch: # Manual Run Button
+  schedule:
+    - cron: '0 */5 * * *' # 24/7 Active rakhne ke liye
+
+jobs:
+  cloud-vpn-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # 5.5 Hours Runtime
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. High Speed VPN Engine (Xray-Core) Install Karna
+      - name: Install Xray VPN Core
+        run: |
+          wget -q -O xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          sudo unzip -q xray.zip -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/xray
+          sudo apt-get update && sudo apt-get install -y qrencode
+
+      # 2. VPN Configuration File Setup Karna
+      - name: Configure VPN Server
+        run: |
+          cat << 'EOF' > /tmp/config.json
+          {
+            "log": { "loglevel": "warning" },
+            "inbounds": [
+              {
+                "port": 8080,
+                "protocol": "vless",
+                "settings": {
+                  "clients": [
+                    { "id": "b831381d-6324-4d53-ad4f-8cda48b30811" }
+                  ],
+                  "decryption": "none"
+                },
+                "streamSettings": {
+                  "network": "ws",
+                  "wsSettings": { "path": "/cloud-net" }
+                }
+              }
+            ],
+            "outbounds": [{ "protocol": "freedom" }]
+          }
+          EOF
+          /usr/local/bin/xray run -c /tmp/config.json &
+          echo "VPN Core Server Running on Port 8080"
+
+      # 3. Cloudflare Tunnel Install & Start Karna
+      - name: Start Cloudflare Tunnel & Generate Mobile Key
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+          
+          cloudflared tunnel --url http://localhost:8080 2> /tmp/cloudflared.log &
+          
+          echo "Waiting for Tunnel to connect..."
+          domain=""
+          for i in {1..30}; do
+            domain=$(grep -o '[-a-zA-Z0-9@:%._\+~#=]*\.trycloudflare\.com' /tmp/cloudflared.log | head -n 1)
+            if [ -n "$domain" ]; then
+              break
+            fi
+            sleep 2
+          done
+          
+          if [ -z "$domain" ]; then
+            echo "Failed to get tunnel domain"
+            cat /tmp/cloudflared.log
+            exit 1
+          fi
+          
+          # VLESS VPN LINK FOR MOBILE
+          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${domain}:443?type=ws&security=tls&path=%2Fcloud-net#CloudNet_US_1Gbps"
+          
+          echo "VPN_KEY=$VLESS_KEY" >> $GITHUB_ENV
+          
+          # GitHub Action Summary Page par direct Key show karna
+          echo "## 🚀 1 Gbps Cloud Internet VPN Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Apne Mobile mein ye Config Key Copy karein:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+          echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          echo "=================================================================="
+          echo "🎉 APKI MOBILE VPN KEY: $VLESS_KEY"
+          echo "=================================================================="
+
+      # 4. Server Ko 5.5 Ghante Active Rakhna
+      - name: Keep VPN Server Running
+        run: |
+          echo "VPN Server Active hai! Mobile connect karke 1Gbps internet use karein..."
+          sleep 18000
