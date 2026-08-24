@@ -1,4 +1,4 @@
-name: Direct IP High-Speed VPN
+name: 100% Working Cloud VPN
 
 on:
   workflow_dispatch:
@@ -6,79 +6,92 @@ on:
     - cron: '0 */5 * * *'
 
 jobs:
-  direct-vpn:
+  working-vpn:
     runs-on: ubuntu-latest
     timeout-minutes: 350
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # BBR Speed Boost
-      - name: Enable BBR & Full Kernel Speed Tuning
+      # 1. BBR Speed Optimization
+      - name: Enable BBR
         run: |
           sudo modprobe tcp_bbr
           echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
           echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
-          echo "net.core.rmem_max=134217728" | sudo tee -a /etc/sysctl.conf
-          echo "net.core.wmem_max=134217728" | sudo tee -a /etc/sysctl.conf
-          echo "net.ipv4.tcp_rmem=4096 87380 67108864" | sudo tee -a /etc/sysctl.conf
-          echo "net.ipv4.tcp_wmem=4096 65536 67108864" | sudo tee -a /etc/sysctl.conf
-          echo "net.ipv4.tcp_mtu_probing=1" | sudo tee -a /etc/sysctl.conf
           sudo sysctl -p
 
-      # Xray Install
-      - name: Install Xray Core
+      # 2. Xray Core Install Karna
+      - name: Install Xray
         run: |
           wget -q -O xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           sudo unzip -q xray.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/xray
 
-      # VLESS Server Configure
-      - name: Configure Xray VLESS Server
+      # 3. Fast WebSocket Server Setup
+      - name: Configure Server
         run: |
-          cat > /tmp/config.json << 'EOF'
+          cat << 'EOF' > /tmp/config.json
           {
             "log": { "loglevel": "none" },
-            "dns": { "servers": ["tcp+local://1.1.1.1","tcp+local://8.8.8.8"] },
-            "inbounds": [{
-              "port": 4433,
-              "protocol": "vless",
-              "settings": {
-                "clients": [{ "id": "b831381d-6324-4d53-ad4f-8cda48b30811" }],
-                "decryption": "none"
-              },
-              "streamSettings": { "network": "tcp" }
-            }],
+            "dns": {
+              "servers": ["tcp+local://1.1.1.1", "tcp+local://8.8.8.8"]
+            },
+            "inbounds": [
+              {
+                "port": 8080,
+                "protocol": "vless",
+                "settings": {
+                  "clients": [
+                    { "id": "b831381d-6324-4d53-ad4f-8cda48b30811" }
+                  ],
+                  "decryption": "none"
+                },
+                "streamSettings": {
+                  "network": "ws",
+                  "wsSettings": { "path": "/cloud-net" }
+                }
+              }
+            ],
             "outbounds": [{ "protocol": "freedom" }]
           }
           EOF
           /usr/local/bin/xray run -c /tmp/config.json &
+          echo "Server Running"
 
-      # Get Direct Public IP (No Tunnel - Full Speed)
-      - name: Get Direct Server IP & Generate Key
+      # 4. Cloudflare Tunnel Start Karna
+      - name: Start Cloudflare Tunnel
         run: |
-          # Firewall open karna
-          sudo iptables -I INPUT -p tcp --dport 4433 -j ACCEPT
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
           
-          # Direct Public IP nikalna
-          SERVER_IP=$(curl -s https://api.ipify.org)
-          echo "Server IP: $SERVER_IP"
+          cloudflared tunnel --url http://localhost:8080 2> /tmp/cloudflared.log &
           
-          # Direct Full-Speed VLESS Key (Koi tunnel nahi)
-          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${SERVER_IP}:4433?type=tcp&security=none&packetEncoding=xudp#GitHub_FULL_SPEED_$(date +%H%M)"
+          domain=""
+          for i in {1..30}; do
+            domain=$(grep -o '[-a-zA-Z0-9@:%._\+~#=]*\.trycloudflare\.com' /tmp/cloudflared.log | head -n 1)
+            if [ -n "$domain" ]; then
+              break
+            fi
+            sleep 2
+          done
           
-          echo "## ⚡ FULL SPEED Direct GitHub Cloud VPN!" >> $GITHUB_STEP_SUMMARY
+          # 100% COMPLETE WORKING KEY (WITH FULL TLS & HEADERS)
+          VLESS_KEY="vless://b831381d-6324-4d53-ad4f-8cda48b30811@${domain}:443?type=ws&security=tls&sni=${domain}&host=${domain}&path=%2Fcloud-net#CloudNet_US_Fast"
+          
+          echo "## 🚀 100% Working Cloud VPN Ready!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Server IP:** \`${SERVER_IP}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📱 v2rayNG Key:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 v2rayNG mein ye Key Paste karein:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
           echo "$VLESS_KEY" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           
-          echo "🎉 FULL SPEED KEY: $VLESS_KEY"
+          echo "=================================================================="
+          echo "🎉 KEY: $VLESS_KEY"
+          echo "=================================================================="
 
-      # Keep Alive
-      - name: Keep VPN Running
-        run: sleep 18000
+      # 5. Keep Alive
+      - name: Keep Server Active
+        run: |
+          sleep 18000
